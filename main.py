@@ -29,7 +29,7 @@ def create_features(df):
 st.title('📈 ทำนายการขายรายเดือน 💸 ')
 
 # Load the main dataset
-csv_file = "C:\\Users\\santi\\Desktop\\CMU\\Equipment.csv"
+csv_file = "Equipment.csv"
 df = process_csv(csv_file)
 
 # Option to manually input or upload a CSV file
