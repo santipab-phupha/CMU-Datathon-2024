@@ -1,1 +1,5 @@
-streamlit-on-Hover-tabs
+pandas
+numpy==1.26.4
+xgboost==2.1.1
+seaborn
+matplotlib
