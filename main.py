@@ -42,6 +42,9 @@ if data_input_method == 'อัปโหลดไฟล์ CSV':
     if uploaded_file is not None:
         new_data = pd.read_csv(uploaded_file)
         new_data['BILL_DATE'] = pd.to_datetime(new_data['BILL_DATE'], format='%Y%m%d')
+    else:
+        st.warning("กรุณาอัปโหลดไฟล์ CSV เพื่อดำเนินการต่อ")
+        new_data = pd.DataFrame(columns=['BILL_DATE', 'QTY'])  # Empty DataFrame as fallback
 
 # Option 2: Manually input data for the last 7 days
 elif data_input_method == 'กรอกตอนนี้':
@@ -58,68 +61,59 @@ elif data_input_method == 'กรอกตอนนี้':
     new_data = pd.DataFrame(input_data)
     new_data['BILL_DATE'] = pd.to_datetime(new_data['BILL_DATE'], format='%Y%m%d')
 
-try:
-    # Combine new data with existing data
-    df_updated = pd.concat([df, new_data]).sort_values('BILL_DATE').reset_index(drop=True)
-    df_updated = create_features(df_updated)
+# Combine new data with existing data
+df_updated = pd.concat([df, new_data]).sort_values('BILL_DATE').reset_index(drop=True)
+df_updated = create_features(df_updated)
 
-    # Train-test split
-    split_date = '2024-04-10'
-    train = df_updated[df_updated['BILL_DATE'] <= split_date]
-    test = df_updated[df_updated['BILL_DATE'] > split_date]
+# Train-test split
+split_date = '2024-04-10'
+train = df_updated[df_updated['BILL_DATE'] <= split_date]
+test = df_updated[df_updated['BILL_DATE'] > split_date]
 
-    X_train = train[['year', 'month', 'day', 'day_of_week', 'day_of_year']]
-    y_train = train['QTY']
-    X_test = test[['year', 'month', 'day', 'day_of_week', 'day_of_year']]
-    y_test = test['QTY']
+X_train = train[['year', 'month', 'day', 'day_of_week', 'day_of_year']]
+y_train = train['QTY']
+X_test = test[['year', 'month', 'day', 'day_of_week', 'day_of_year']]
+y_test = test['QTY']
 
-    # Train the model
-    xgb_model = XGBRegressor(objective='reg:squarederror', n_estimators=100, learning_rate=0.1)
-    xgb_model.fit(X_train, y_train)
+# Train the model
+xgb_model = XGBRegressor(objective='reg:squarederror', n_estimators=100, learning_rate=0.1)
+xgb_model.fit(X_train, y_train)
 
-    # Make predictions
-    y_pred = xgb_model.predict(X_test)
+# Make predictions
+y_pred = xgb_model.predict(X_test)
 
-    # Generate future dates for forecasting
-    last_date = df_updated['BILL_DATE'].max()
-    future_dates = [last_date + DateOffset(days=i) for i in range(1, 31)]
-    future_df = pd.DataFrame({'BILL_DATE': future_dates})
-    future_df = create_features(future_df)
-    X_future = future_df[['year', 'month', 'day', 'day_of_week', 'day_of_year']]
-    future_predictions = xgb_model.predict(X_future)
+# Generate future dates for forecasting
+last_date = df_updated['BILL_DATE'].max()
+future_dates = [last_date + DateOffset(days=i) for i in range(1, 31)]
+future_df = pd.DataFrame({'BILL_DATE': future_dates})
+future_df = create_features(future_df)
+X_future = future_df[['year', 'month', 'day', 'day_of_week', 'day_of_year']]
+future_predictions = xgb_model.predict(X_future)
 
-    # Plotting
-    plt.figure(figsize=(14, 8))
-    sns.set(style="whitegrid")
+# Plotting
+plt.figure(figsize=(14, 8))
+sns.set(style="whitegrid")
 
-    plt.plot(train['BILL_DATE'], y_train, label='True QTY (Train)', color='blue', linewidth=2)
-    plt.plot(test['BILL_DATE'], y_test, label='True QTY (Test)', color='green', linewidth=2)
-    plt.plot(test['BILL_DATE'], y_pred, label='Predicted QTY (Test)', color='red', linestyle='--', linewidth=2)
-    plt.plot(future_df['BILL_DATE'], future_predictions, label='Predicted QTY (Next 1 Month)', color='orange', linestyle='-.', linewidth=2)
+plt.plot(train['BILL_DATE'], y_train, label='True QTY (Train)', color='blue', linewidth=2)
+plt.plot(test['BILL_DATE'], y_test, label='True QTY (Test)', color='green', linewidth=2)
+plt.plot(test['BILL_DATE'], y_pred, label='Predicted QTY (Test)', color='red', linestyle='--', linewidth=2)
+plt.plot(future_df['BILL_DATE'], future_predictions, label='Predicted QTY (Next 1 Month)', color='orange', linestyle='-.', linewidth=2)
 
-    # Plot the new data in purple
+# Plot the new data in purple (if new_data is not empty)
+if not new_data.empty:
     plt.plot(new_data['BILL_DATE'], new_data['QTY'], label='Added Data (Last 7 Days)', color='purple', linewidth=2, marker='o')
 
-    # Formatting the plot
-    plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
-    plt.gca().xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
-    plt.gcf().autofmt_xdate(rotation=45)
+# Formatting the plot
+plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
+plt.gca().xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+plt.gcf().autofmt_xdate(rotation=45)
 
-    plt.title(f'QTY Forecast with Last 7 Days Data', fontsize=16)
-    plt.xlabel('Date', fontsize=14)
-    plt.ylabel('Quantity (QTY)', fontsize=14)
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
-    plt.legend()
-    plt.grid(False)
+plt.title(f'QTY Forecast with Last 7 Days Data', fontsize=16)
+plt.xlabel('Date', fontsize=14)
+plt.ylabel('Quantity (QTY)', fontsize=14)
+plt.xticks(fontsize=12)
+plt.yticks(fontsize=12)
+plt.legend()
+plt.grid(False)
 
-    st.pyplot(plt)
-except:
-    st.markdown(
-        """
-    <div style='border: 2px solid red; border-radius: 5px; padding: 10px; background-color: white; font-family: "Times New Roman", Times, serif;'>
-        <h1 style='text-align: center; color: red; font-family: "Times New Roman", Times, serif;'>
-            ❌ ยังไม่อัปโหลดไฟล์ .csv ❌
-        </h1>
-    </div>
-        """, unsafe_allow_html=True)
+st.pyplot(plt)
